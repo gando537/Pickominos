@@ -6,7 +6,7 @@
 /*   By: mdiallo <mdiallo@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/12/03 23:04:01 by mdiallo           #+#    #+#             */
-/*   Updated: 2021/12/07 16:49:07 by mdiallo          ###   ########.fr       */
+/*   Updated: 2021/12/09 20:25:04 by mdiallo          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,7 +15,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
 #include <string.h>
 #include <errno.h>
@@ -61,12 +60,11 @@ t_bool  is_emptyPile(t_stack *stack);
 t_elm   *pull_lst(Liste *lst, int nb);
 t_stack *init_stack(int i);
 void    start_game();
-int     jets_d(t_stack *stack);
+int     jets_d(Liste *liste, t_stack *stack);
 Liste	*init_game();
-int   	calculPoint(t_stack *stack);
 void    spillElm(t_elm *elm);
 t_bool  checkAdversary(Liste *liste, t_stack *stack, int value);
-int    	getValue(int nb_d, int *stock, int *d, t_stack *stack);
+int    	getValue(Liste *liste, int nb_d, int *stock, int *d, t_stack *stack);
 void    add_lst_stack(Liste *lst, t_stack *stack);
 void    push_back(t_elm *elm, Liste *lst);
 void    push_stack(t_elm *elm, t_stack *stack);

@@ -6,7 +6,7 @@
 /*   By: mdiallo <mdiallo@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/12/03 23:03:55 by mdiallo           #+#    #+#             */
-/*   Updated: 2021/12/09 01:15:42 by mdiallo          ###   ########.fr       */
+/*   Updated: 2021/12/09 22:56:59 by mdiallo          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,7 +16,6 @@ char   *prompt(char *mess, int size, int i)
 {
     char    *str;
 
-    fflush(stdin);
     str = malloc(sizeof(char) * size);
     if (i) {
         if (i == 2) {
@@ -29,6 +28,7 @@ char   *prompt(char *mess, int size, int i)
     }
     else
         printf("\n%s", mess);
+    fflush(stdin);
     fgets(str, size, stdin);
     if (ferror(stdin)) {
         fprintf(stderr, "Reading error with code %d\n", errno );
@@ -138,18 +138,47 @@ void    push_stack(t_elm *elm, t_stack *stack) {
             elm->next = stack->first;
         stack->first = elm;
         stack->len++;
+        stack->total += elm->nb_point;
     }
+}
+
+t_elm     *pull_bis(Liste *lst, int nb) {
+
+    t_elm   *curr;
+    t_elm   *prev;
+
+    prev = lst->premier;
+    curr = prev->next;
+    while (curr && curr->next) {
+        if (curr->next->value >= nb) {
+            if (curr->next->value > nb)
+                prev->next = curr->next;
+            else {
+                prev = prev->next;
+                curr = curr->next;
+                prev->next = curr->next;
+            }
+            curr->next = NULL;
+            lst->size--;
+            return (curr);
+        }
+        curr = curr->next;
+        prev = prev->next;
+    }
+    lst->size--;
+    prev->next = NULL;
+    return (curr);
 }
 
 t_elm    *pull_lst(Liste *lst, int nb) {
 
     t_elm   *curr;
-    t_elm   *prev;
 
     if (is_emptylst(lst) == false) {
-        if (lst->premier->next == NULL && lst->premier->value >= nb) {
+        if (lst->premier->next == NULL && lst->premier->value <= nb) {
             curr = lst->premier;
             lst->premier = NULL;
+            lst->size--;
             return (curr);
         }
         if (lst->premier->value == nb || \
@@ -157,26 +186,10 @@ t_elm    *pull_lst(Liste *lst, int nb) {
             curr = lst->premier;
             lst->premier = lst->premier->next;
             lst->size--;
+            curr->next = NULL;
             return (curr);
         }
-        prev = lst->premier;
-        curr = prev->next;
-        while (curr && curr->next) {
-            if (curr->next->value >= nb) {
-                if (curr->next->value > nb)
-                    prev->next = curr->next;
-                else {
-                    prev = prev->next;
-                    curr = curr->next;
-                    prev->next = curr->next;
-                }
-                curr->next = NULL;
-                lst->size--;
-                return (curr);
-            }
-            curr = curr->next;
-            prev = prev->next;
-        }
+        return (pull_bis(lst, nb));
     }
     return ((t_elm *)NULL);
 }
@@ -217,6 +230,7 @@ t_elm    *pull_stack(t_stack *stack) {
         stack->first = elm->next;
         elm->next = NULL;
         stack->len--;
+        stack->total -= elm->nb_point;
     }
     return (elm);
 }
@@ -236,24 +250,14 @@ void    free_stack(t_stack *stack) {
     free(stack);
 }
 
-int   calculPoint(t_stack *stack) {
-
-    int     total;
-    t_elm   *elm;
-
-    total = 0;
-    elm = stack->first;
-    while (elm) {
-        stack->total += elm->nb_point;
-        elm = elm->next;
-    }
-    return (total);
-}
-
 void    print_stack(t_stack *stack) {
 
     t_elm *elm;
 
+    if (stack->first == NULL) {
+        printf("\n\t ==== Pile vide ====\n\n");
+        return;
+    }
     for (int i = 0; i < stack->len; i++)
         printf("╔══╗ ");
     printf("\n");
@@ -274,19 +278,26 @@ void    print_stack(t_stack *stack) {
     printf("\n");
     for (int i = 0; i < stack->len; i++)
         printf("╚══╝ ");
-    printf("\n\n\t Nombre de points ==> %d\n", stack->total);
+    printf("\n\n\t Nombre de points ==> %d\n\n", stack->total);
 }
 
-void    print_lst(Liste *lst) {
+void    print_elm(Liste *liste) {
 
-    t_elm *elm;
+    t_stack *stack;
 
-    elm = lst->premier;
-    while (elm) {
-        printf("[%d] ", elm->value);
-        elm = elm->next;
+    stack = liste->stack;
+    while (stack) {
+        printf("\n\t@%s\n", stack->name_player);
+        printf("\t╔══╗\n");
+        if (stack->first)
+            printf("\t║%d║\n", stack->first->value);
+        printf("\t╟──╢\n");
+        if (stack->first)
+            printf("\t║ %d║\n", stack->first->nb_point);
+        printf("\t╚══╝\n");
+        printf("\n\n");
+        stack = stack->nxt;
     }
-    printf("\n");
 }
 
 void    free_lst(Liste *lst) {
@@ -333,7 +344,7 @@ void    display_pickominos(Liste *lst) {
     printf("\n");
     for (int i = 0; i < lst->size; i++)
         printf("╚══╝ ");
-    printf("\n");
+    printf("\n\n");
 }
 
 Liste		*init_game() {
@@ -377,13 +388,13 @@ void    printer(int nb_d, int *d) {
 
 t_bool  checkSaisi(char *saisi) {
 
-    if (!strcmp(saisi, "1") ||
-        !strcmp(saisi, "2") ||
-        !strcmp(saisi, "3") ||
-        !strcmp(saisi, "4") ||
-        !strcmp(saisi, "5") ||
-        !strcmp(saisi, "v") ||
-        !strcmp(saisi, "V"))
+    if (!strcmp(saisi, "1") || !strcmp(saisi, "p") ||
+        !strcmp(saisi, "2") || !strcmp(saisi, "s") ||
+        !strcmp(saisi, "3") || !strcmp(saisi, "4") ||
+        !strcmp(saisi, "5") || !strcmp(saisi, "v") ||
+        !strcmp(saisi, "V") || !strcmp(saisi, "P") ||
+        !strcmp(saisi, "a") || !strcmp(saisi, "A") ||
+        !strcmp(saisi, "S"))
         return (true);
     return (false);
 }
@@ -397,7 +408,27 @@ t_bool  valuExist(int *d, int val, int nb_d) {
     return (false);
 }
 
-int    getValue(int nb_d, int *stock, int *d, t_stack *stack) {
+t_bool      printerSave(Liste *liste, t_stack *stack, char *saisi) {
+
+    if (!strcmp(saisi, "p") || !strcmp(saisi, "P")) {
+        print_elm(liste);
+        return (true);
+    }
+    if (!strcmp(saisi, "a") || !strcmp(saisi, "A")) {
+        print_stack(stack);
+        return (true);
+    }
+    if (!strcmp(saisi, "o") || !strcmp(saisi, "O")) {
+        display_pickominos(liste);
+        return (true);
+    }
+    if (!strcmp(saisi, "s") || !strcmp(saisi, "S")) {
+        return (true);
+    }
+    return (false);
+}
+
+int    getValue(Liste *liste, int nb_d, int *stock, int *d, t_stack *stack) {
 
     int     j;
     int     jet;
@@ -410,6 +441,11 @@ int    getValue(int nb_d, int *stock, int *d, t_stack *stack) {
         saisi = prompt(stack->name_player , 2, 2);
         if (checkSaisi(saisi) == false) {
             printf("\n\t\t \033[31m===== Saisie incorrecte!!! =====\033[00m\n");
+            printer(nb_d, d);
+            free(saisi);
+            continue ;
+        }
+        if (printerSave(liste, stack, saisi) == true) {
             printer(nb_d, d);
             free(saisi);
             continue ;
@@ -449,23 +485,27 @@ t_bool  valExist(int *d, int *stock, int nb_d) {
     return (false);
 }
 
-t_bool  restart(char *mess) {
+t_bool  start(Liste *liste, t_stack *stack, char *mess) {
 
     char *rp;
 
-    do {
-        rp = prompt(mess, 2, 0);
-        if (strcmp(rp, "y") == 0 || strcmp(rp, "Y") == 0) {
+    while (true) {
+        rp = prompt(mess, 2, 2);
+        if (strcmp(rp, "l") == 0 || strcmp(rp, "L") == 0) {
             free(rp);
             return (true);
         }
-        if (strcmp(rp, "n") == 0 || strcmp(rp, "N") == 0) {
+        if (strcmp(rp, "r") == 0 || strcmp(rp, "R") == 0) {
             free(rp);
             return (false);
         }
+        if (printerSave(liste, stack, rp) == true) {
+            free(rp);
+            continue ;
+        }
         free(rp);
-        printf("\t\t \033[31m==== Erreure de saisie!!! ====\033[00m\n");
-    }while (true);
+        printf("\n\t\t \033[31m==== Erreure de saisie!!! ====\033[00m\n\n");
+    }
 }
 
 int     calculValue(int *stock) {
@@ -494,7 +534,7 @@ void    printStock(int *stock) {
     printf("\n\n\t ");
 }
 
-int    jets_d(t_stack *stack) {
+int    jets_d(Liste *liste, t_stack *stack) {
 
     int     jet;
     int     nb_d;
@@ -505,7 +545,9 @@ int    jets_d(t_stack *stack) {
     memset(stock, 0, sizeof(int) * 6);
     srand( time( NULL ) );
     while (nb_d) {
-        memset(d, 0, 8);
+        memset(d, 0, sizeof(int) * 8);
+        if (start(liste, stack, stack->name_player) == false)
+            break ;
         for (int i = 0; i < nb_d; i++) {
             jet = rand() % (6 + 1 - 1) + 1;
             d[i] = jet;
@@ -515,10 +557,8 @@ int    jets_d(t_stack *stack) {
             printf("\n\t\t\033[31m === Pas de nouvelle valeure, tour raté [pass] ===\033[00m\n");
             return (0);
         }
-        jet = getValue(nb_d, stock, d, stack);
+        jet = getValue(liste, nb_d, stock, d, stack);
         nb_d -= jet;
-        if (restart("\t Voulez-vous relancer ? [y/n] : ") == false)
-            break ;
     }
     printStock(stock);
     if (stock[5] == 0) {
@@ -573,19 +613,21 @@ void game_winner(Liste *liste) {
     t_stack *tmp;
 
     stack = liste->stack;
-    while (stack) {
-        stack->total = calculPoint(stack);
-        stack = stack->nxt;
-    }
-    stack = liste->stack;
+    printf("\n====================================================\n\n");
+    printf("@%s\n", stack->name_player);
+    print_stack(stack);
     tmp = stack->nxt;
     while (tmp) {
         if (stack->total < tmp->total)
             stack = tmp;
-        tmp = tmp->nxt;
+        printf("\n====================================================\n\n");
+        printf("@%s\n", tmp->name_player);
         print_stack(tmp);
+        tmp = tmp->nxt;
     }
-    printf("\n\t === Le gagnant est %s avec %d points", stack->name_player, stack->total);
+    printf("\n\t====================================================\n");
+    printf("\n\t ======== Le gagnant est %s avec %d points =======\n", stack->name_player, stack->total);
+    printf("\n\t====================================================\n\n");
 }
 
 void    start_game() {
@@ -599,8 +641,8 @@ void    start_game() {
     stack = liste->stack;
     while(liste->premier) {
         display_pickominos(liste);
-        value = jets_d(stack);
-        if (value < liste->premier->value ) {
+        value = jets_d(liste, stack);
+        if (!value || value < liste->premier->value ) {
             elm = pull_stack(stack);
             if (elm) {
                 insert_elm(liste, elm);
