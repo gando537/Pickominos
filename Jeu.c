@@ -6,11 +6,26 @@
 /*   By: mdiallo <mdiallo@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/12/03 23:03:55 by mdiallo           #+#    #+#             */
-/*   Updated: 2021/12/09 22:56:59 by mdiallo          ###   ########.fr       */
+/*   Updated: 2021/12/18 13:45:25 by mdiallo          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "Jeu.h"
+
+char *name_default(int i) {
+
+    char    c[2];
+    char    *name;
+    char    *s;
+
+    c[0] = '0' + i;
+    c[1] = '\0';
+    name = malloc(sizeof(char) * 8);
+    s = "Player";
+    strcpy(name, s);
+    strcat(name, c);
+    return (name);
+}
 
 char   *prompt(char *mess, int size, int i)
 {
@@ -18,11 +33,8 @@ char   *prompt(char *mess, int size, int i)
 
     str = malloc(sizeof(char) * size);
     if (i) {
-        if (i == 2) {
-            if (mess[strlen(mess) - 1] == '\n')
-                mess[strlen(mess) - 1] = '\0';
+        if (i == 2) 
             printf("\t @%s > ", mess);
-        }
         else
             printf("\n\t %s > ", mess);
     }
@@ -34,6 +46,10 @@ char   *prompt(char *mess, int size, int i)
         fprintf(stderr, "Reading error with code %d\n", errno );
         return (char *)NULL;
     }
+    if (str[0] == '\n')
+        return (char *)NULL;
+    if (str[strlen(str) - 1] == '\n')
+        str[strlen(str) - 1] = '\0';
     return (str);
 }
 
@@ -58,13 +74,14 @@ t_stack    *init_stack(int i) {
     stack->first = NULL;
     stack->len = 0;
     stack->total = 0;
+    stack->set = 0;
     stack->name_player = NULL;
     printf("\n\t\t ==== Veuillez donner un pseudo au joueur%d ====\n", i);
-    while (stack->name_player == NULL) {
-        stack->name_player = prompt("\t Pseudo ", 10, 1);
-        if (stack->name_player == NULL)
-            printf("\t\t ==== Pseudonyme entre 1 et 9 caractères ====\n");
-    }
+    stack->name_player = prompt("\t Pseudo ", 10, 1);
+    if (stack->name_player == NULL)
+        stack->name_player = name_default(i);
+    if (strcmp(stack->name_player, "IA") == 0)
+        stack->set = 1;
     stack->nxt = NULL;
     return (stack);
 }
@@ -79,6 +96,7 @@ Liste    *init_lst() {
     lst->size = 0;
     lst->premier = NULL;
     lst->stack = NULL;
+    lst->nbplayer = 0;
     nb_point = 0;
     value = 20;
     while (++value <= 36) {
@@ -356,28 +374,28 @@ Liste		*init_game() {
 
     fflush(stdin);
     nbJ = 0;
-    while (!nbJ) {
+    while (true) {
         str = prompt("Veuillez saisir le nombre de joueur[1,7] : ", 2, 0);
         nbJ = atoi(str);
         free(str);
-        if (nbJ <= 0 || nbJ > 7)
+        if (nbJ < 1 || nbJ > 7)
             printf("\n\t\t \033[31m==== nombre de joueur doit être entre [1,7] ====\033[00m\n");
+        else
+            break;
     }
     liste = init_lst();
     liste->nbplayer = nbJ;
-    if (liste->nbplayer >= 2) {
-        for (int i = 0; i < liste->nbplayer; i++) {
-            stack = init_stack(i + 1);
-            add_lst_stack(liste, stack);
-        }
+    for (int i = 0; i < liste->nbplayer; i++) {
+        stack = init_stack(i + 1);
+        add_lst_stack(liste, stack);
     }
     return (liste);
 }
 
 void    printer(int nb_d, int *d) {
 
-    printf("\n\t Les numéros gagnants ==> ");
-    for (int i = 0; i < nb_d; i++){
+    printf("\n\t Les dés sortis ==> ");
+    for (int i = 0; i < nb_d; i++) {
         if (d[i] == 6)
             printf("[V] ");
         else
@@ -394,7 +412,9 @@ t_bool  checkSaisi(char *saisi) {
         !strcmp(saisi, "5") || !strcmp(saisi, "v") ||
         !strcmp(saisi, "V") || !strcmp(saisi, "P") ||
         !strcmp(saisi, "a") || !strcmp(saisi, "A") ||
-        !strcmp(saisi, "S"))
+        !strcmp(saisi, "S") || !strcmp(saisi, "d") ||
+        !strcmp(saisi, "D") || !strcmp(saisi, "q") ||
+        !strcmp(saisi, "Q"))
         return (true);
     return (false);
 }
@@ -408,7 +428,26 @@ t_bool  valuExist(int *d, int val, int nb_d) {
     return (false);
 }
 
-t_bool      printerSave(Liste *liste, t_stack *stack, char *saisi) {
+void    d_stock(int *stock) {
+
+    int j, k;
+
+    printf("\n\t Les dés en stock ==> ");
+    for (int i = k = 0; i < 6; i++) {
+        j = 0;
+        while (j++ < stock[i] && ++k) {
+            if (i == 5)
+                printf("[V] ");
+            else
+                printf("[%d] ", i + 1);
+        }
+    }
+    if (k == 0)
+        printf("Aucun dé en stock!!!");
+    printf("\n\n");
+}
+
+t_bool      printerSave(Liste *liste, t_stack *stack, char *saisi, int *stock) {
 
     if (!strcmp(saisi, "p") || !strcmp(saisi, "P")) {
         print_elm(liste);
@@ -422,8 +461,65 @@ t_bool      printerSave(Liste *liste, t_stack *stack, char *saisi) {
         display_pickominos(liste);
         return (true);
     }
-    if (!strcmp(saisi, "s") || !strcmp(saisi, "S")) {
+    if (!strcmp(saisi, "d") || !strcmp(saisi, "D")) {
+        d_stock(stock);
         return (true);
+    }
+    if (!strcmp(saisi, "s") || !strcmp(saisi, "S")) {
+        create_file(liste, stack);
+        return (true);
+    }
+    if (!strcmp(saisi, "q") || !strcmp(saisi, "Q")) {
+        free_lst(liste);
+        exit (0);
+    }
+    return (false);
+}
+
+int    set_IA(int nb_d, int *d, int *stock) {
+
+    int j, k, l;
+    int tmp[6];
+
+    l = 0;
+    sleep(1);
+    memset(tmp, 0, sizeof(int) * 6);
+    for (int i = 0; i < nb_d; i++)
+        tmp[d[i] - 1]++;
+    j = 1;
+    k = tmp[0];
+    for (int i = 1; i < 6; i++) {
+        if (tmp[i] * (i + 1) > k && !stock[i]) {
+            k = tmp[i] * (i + 1);
+            j = i + 1;
+        }
+    }
+    for (int i = 0; i < nb_d; i++) {
+        if (d[i] == j) {
+            stock[j - 1] += 1;
+            l++;
+        }
+    }
+    if (j == 6)
+        printf("\n\t === Dé(s) choisis ==> [V] ===\n");
+    else
+        printf("\n\t === Dé(s) choisis ==> [%d] ===\n", j);
+    sleep(1);
+    return (l);
+}
+
+t_bool checker(char *sa, int nb, int *d, Liste *lst, t_stack *s, int *st) {
+
+    if (checkSaisi(sa) == false) {
+        printf("\n\t\t \033[31m===== Saisie incorrecte!!! =====\033[00m\n");
+        printer(nb, d);
+        free(sa);
+        return (true) ;
+    }
+    if (printerSave(lst, s, sa, st) == true) {
+        printer(nb, d);
+        free(sa);
+        return (true) ;
     }
     return (false);
 }
@@ -439,17 +535,8 @@ int    getValue(Liste *liste, int nb_d, int *stock, int *d, t_stack *stack) {
     {
         printf("\n\t\t === Veuillez choisir la valeur à conserver ===\n\n");
         saisi = prompt(stack->name_player , 2, 2);
-        if (checkSaisi(saisi) == false) {
-            printf("\n\t\t \033[31m===== Saisie incorrecte!!! =====\033[00m\n");
-            printer(nb_d, d);
-            free(saisi);
+        if (checker(saisi, nb_d, d, liste, stack, stock) == true)
             continue ;
-        }
-        if (printerSave(liste, stack, saisi) == true) {
-            printer(nb_d, d);
-            free(saisi);
-            continue ;
-        }
         if (!strcmp(saisi, "v") || !strcmp(saisi, "V"))
             jet = 6;
         else
@@ -485,7 +572,7 @@ t_bool  valExist(int *d, int *stock, int nb_d) {
     return (false);
 }
 
-t_bool  start(Liste *liste, t_stack *stack, char *mess) {
+t_bool  start(Liste *liste, t_stack *stack, char *mess, int *stock) {
 
     char *rp;
 
@@ -499,7 +586,7 @@ t_bool  start(Liste *liste, t_stack *stack, char *mess) {
             free(rp);
             return (false);
         }
-        if (printerSave(liste, stack, rp) == true) {
+        if (printerSave(liste, stack, rp, stock) == true) {
             free(rp);
             continue ;
         }
@@ -522,21 +609,26 @@ int     calculValue(int *stock) {
     return (res);
 }
 
-void    printStock(int *stock) {
+t_bool  checkerIA(Liste *liste, int *stock, t_stack *stack) {
 
-    printf("\n\t ");
-    for (int i = 0; i < 6; i++) {
-        if (stock[i] == 6)
-            printf("[V] ");
-        else
-            printf("[%d] ", stock[i]);
+    int     value;
+    t_stack *tmp;
+
+    value = calculValue(stock);
+    tmp = liste->stack;
+    while (tmp) {
+        if (tmp != stack)
+            if (tmp->first && tmp->first->value == value)
+                return (true);
+        tmp = tmp->nxt;
     }
-    printf("\n\n\t ");
+    if (liste->premier && liste->premier->value <= value)
+        return (true);
+    return (false);
 }
 
 int    jets_d(Liste *liste, t_stack *stack) {
 
-    int     jet;
     int     nb_d;
 	int		stock[6];
 	int		d[8];
@@ -546,28 +638,30 @@ int    jets_d(Liste *liste, t_stack *stack) {
     srand( time( NULL ) );
     while (nb_d) {
         memset(d, 0, sizeof(int) * 8);
-        if (start(liste, stack, stack->name_player) == false)
+        if (!(stack->set) && start(liste, stack, stack->name_player, stock) == false)
             break ;
-        for (int i = 0; i < nb_d; i++) {
-            jet = rand() % (6 + 1 - 1) + 1;
-            d[i] = jet;
-        }
+        for (int i = 0; i < nb_d; i++)
+            d[i] = rand() % (6 + 1 - 1) + 1;
         printer(nb_d, d);
         if (valExist(d, stock, nb_d) == false) {
             printf("\n\t\t\033[31m === Pas de nouvelle valeure, tour raté [pass] ===\033[00m\n");
             return (0);
         }
-        jet = getValue(liste, nb_d, stock, d, stack);
-        nb_d -= jet;
+        if (stack->set) {
+            nb_d -= set_IA(nb_d, d, stock);
+            if (checkerIA(liste, stock, stack) == true)
+                break ;
+        }
+        else
+            nb_d -= getValue(liste, nb_d, stock, d, stack);
     }
-    printStock(stock);
+    d_stock(stock);
     if (stock[5] == 0) {
         printf("\n\t\t \033[31m=== Pas de [V] dans les valeurs conservées, tour raté [pass] ===\033[00m\n");
         return (0);
     }
-    jet = calculValue(stock);
-    printf("Valeur =>> [%d]\n", jet);
-    return (jet);
+    printf("Valeur =>> [%d]\n", calculValue(stock));
+    return (calculValue(stock));
 }
 
 
@@ -625,19 +719,234 @@ void game_winner(Liste *liste) {
         print_stack(tmp);
         tmp = tmp->nxt;
     }
-    printf("\n\t====================================================\n");
-    printf("\n\t ======== Le gagnant est %s avec %d points =======\n", stack->name_player, stack->total);
-    printf("\n\t====================================================\n\n");
+    printf("\t===========================================================\n");
+    printf("\t ======== Le gagnant est %s avec %d points =======\n", stack->name_player, stack->total);
+    printf("\t===========================================================\n\n");
 }
 
-void    start_game() {
+t_bool  get_answer(char *mess) {
+
+    char      *p;
+
+    while (true) {
+        p = prompt(mess, 2, 0);
+        if (!strcmp(p, "y") || !strcmp(p, "Y")) {
+            free(p);
+            return (true);
+        }
+        if (!strcmp(p, "n") || !strcmp(p, "N")) {
+            free(p);
+            return (false);
+        }
+        free(p);
+    }
+    return(false);
+}
+
+t_bool		check_directory()
+{
+	DIR * dir;
+	if ((dir = opendir(".")) == NULL)
+    	return (EXIT_FAILURE);
+	struct dirent *fich;
+	while ((fich = readdir(dir)))
+	{
+		if(!strcmp(fich->d_name,"~save.txt"))
+		{
+			closedir(dir);
+			return (true);
+		}		
+	}
+    closedir(dir);
+	return (false);
+}
+
+char	*ft_itoa(int n)
+{
+	int     len;
+	char    *c;
+
+	len = 3;
+	c = (char *)malloc(sizeof(char) * len + 1);
+	if (c == NULL)
+		return (0);
+	c[len] = '\0';
+	len--;
+	while (len >= 0)
+	{
+		c[len] = '0' + n % 10;
+		n /= 10;
+		len--;
+	}
+	return (c);
+}
+void    save_value(t_elm *elm, FILE *fichier) {
+
+    char  *tmp;
+    t_elm *e;
+
+    e = elm;
+    if (e) {
+        while (e) {
+            tmp = ft_itoa(e->value * 10 + e->nb_point);
+            fputs(tmp, fichier);
+            (e->next != NULL) ? fputc(' ', fichier) : fputc('\n', fichier);
+            e = e->next;
+            free(tmp);
+        }
+    }
+    else
+        fputc('\n', fichier);
+}
+
+void	create_file(Liste *liste, t_stack *stack)
+{
+    t_stack *s;
+	FILE	*fichier;
+
+	if (!(fichier = fopen("~save.txt", "w"))){
+		printf("Echec de sauvegarde!!!\n");
+		return ;
+	}
+    save_value(liste->premier, fichier);
+    s = stack;
+    do{
+        fputs(s->name_player, fichier);
+        if (s->first) {
+            fputc(' ', fichier);
+            save_value(s->first, fichier);
+        }
+        s = (s->nxt == NULL) ? liste->stack : s->nxt;
+    }while (s != stack);
+	fclose(fichier);
+}
+
+void    push_backStack(t_elm *elm, t_stack *stack) {
+
+    t_elm *tmp;
+
+    stack->len++;
+    stack->total += elm->nb_point;
+    if (stack->first == NULL) {
+        stack->first = elm;
+        return ;
+    }
+    tmp = stack->first;
+    while (tmp->next)
+        tmp = tmp->next;
+    tmp->next = elm;
+}
+
+void    parse_value(Liste *liste, t_stack *stack, char *str, int v) {
+
+    int at, nbp, value;
+
+    at = atoi(str);
+    nbp = at % 10;
+    value = at / 10;
+    if (!v)
+        push_backStack(ft_new_elm(value, nbp), stack);
+    else
+        push_back(ft_new_elm(value, nbp), liste);
+}
+
+void    parse_line(char *s, Liste *liste, t_stack *stack, int v) {
+
+    char *p, *p1, *p2;
+
+    p = s;
+    if (!v) {
+        while (*p != '\0' && *p != ' ')
+            p++;
+        stack->name_player = strndup(s, p - s);
+        if (stack->name_player[strlen(stack->name_player) - 1] == '\n')
+            stack->name_player[strlen(stack->name_player) - 1] = '\0';
+    }
+    s = p;
+    while (*s != '\0') {
+        if (*s == ' ')
+            s++;
+        p = p1 = s;
+        while (*p != '\0' && *p != ' ')
+            p++;
+        s = p;
+        p2 = strndup(p1, p - p1);
+        parse_value(liste, stack, p2, v);
+    }
+}
+
+void    re_init_stack(Liste *liste, char *s) {
+
+    t_stack *tmp;
+    t_stack *stack;
+
+    if (!(stack = malloc(sizeof(t_stack))))
+        return ;
+    stack->first = NULL;
+    stack->len = 0;
+    stack->total = 0;
+    stack->set = 0;
+    parse_line(s, liste, stack, 0);
+    if (strcmp(stack->name_player, "IA") == 0)
+        stack->set = 1;
+    if (liste->stack == NULL)
+        liste->stack = stack;
+    else {
+        tmp = liste->stack;
+        while (tmp->nxt)
+            tmp = tmp->nxt;
+        tmp->nxt = stack;
+    }
+    stack->nxt = NULL;
+}
+
+Liste    *re_init_lst(char *str) {
+
+    Liste   *lst;
+
+    if (!(lst = (Liste *)malloc(sizeof(Liste))))
+        return (0);
+    lst->size = 0;
+    lst->premier = NULL;
+    lst->stack = NULL;
+    lst->nbplayer = 0;
+    parse_line(str, lst, lst->stack, 1);
+    return (lst);
+}
+
+Liste    *restart_game() {
+
+    Liste   *liste;
+    t_stack *stack;
+    char    *str;
+    FILE	*fich = NULL;
+
+    fich = fopen("~save.txt", "r");
+    str = malloc(sizeof(char) * 75);
+    fgets(str, 75, fich);
+    liste = re_init_lst(str);
+    free(str);
+    str = malloc(sizeof(char) * 75);
+    while(fgets(str, 75, fich)) {
+        re_init_stack(liste, str);
+        free(str);
+        str = malloc(sizeof(char) * 75);
+    }
+    stack = liste->stack;
+    while (stack){
+        liste->nbplayer++;
+        stack = stack->nxt;
+    }
+    remove("~save.txt");
+    return (liste);
+}
+
+void    start_game(Liste *liste) {
     
     int       value;
-    Liste     *liste;
     t_stack   *stack;
     t_elm     *elm;
 
-    liste = init_game();
     stack = liste->stack;
     while(liste->premier) {
         display_pickominos(liste);
@@ -663,4 +972,25 @@ void    start_game() {
     }
     game_winner(liste);
     free_lst(liste);
+}
+
+void    game() {
+
+    Liste     *liste;
+
+    while (true) {
+        if (check_directory() == true) {
+            if (get_answer("\t Relancer la partie ? [y/n] : ") == true) {
+                liste = restart_game();
+                goto SAUT;
+            }
+        }
+        liste = init_game();
+    SAUT :
+        start_game(liste);
+        if (get_answer("\tNouvelle Partie ? [y/n] : ") == false){
+            free_lst(liste);
+            exit(EXIT_SUCCESS);
+        }
+    }
 }
